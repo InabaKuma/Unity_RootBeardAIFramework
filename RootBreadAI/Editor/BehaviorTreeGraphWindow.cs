@@ -17,7 +17,7 @@ public class BehaviorTreeGraphWindow : EditorWindow
     private const float MaxZoom = 2.5f;
 
     private const float CommentHandleSize = 12f;
-    private const float CommentFoldHeaderHeight = 26f; // 屏幕空间，固定像素
+    private const float CommentFoldHeaderHeight = 26f;
 
     private BTNodeData selectedNode;
     private BTNodeData draggingNode;
@@ -97,7 +97,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
         Repaint();
     }
 
-    // ============ 坐标转换：世界 -> 屏幕 ============
     private Vector2 ToScreen(Vector2 world) => new Vector2(
         world.x * zoom + panOffset.x,
         world.y * zoom + panOffset.y);
@@ -285,8 +284,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
         Repaint();
     }
 
-    // ============ 注释几何 ============
-
     private Rect GetCommentScreenRect(BTComment c)
     {
         Vector2 tl = ToScreen(new Vector2(c.Position.x, c.Position.y));
@@ -303,8 +300,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
             CommentFoldHeaderHeight,
             CommentFoldHeaderHeight);
     }
-
-    // ============ 注释绘制 ============
 
     private void DrawComments()
     {
@@ -323,7 +318,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
                 : new Color(c.TextColor.r, c.TextColor.g, c.TextColor.b, 0.6f);
             DrawBorder(rect, border, selectedComment == c ? 2f : 1f);
 
-            // 折叠按钮（右上角）
             Rect foldBtn = GetCommentFoldButtonRect(rect);
             var arrowStyle = new GUIStyle(EditorStyles.boldLabel)
             {
@@ -335,7 +329,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
 
             if (c.Collapsed)
             {
-                // 标题栏：显示第一行
                 string title = string.IsNullOrEmpty(c.Text) ? "注释" : c.Text;
                 int nl = title.IndexOf('\n');
                 if (nl >= 0) title = title.Substring(0, nl);
@@ -366,7 +359,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
                 };
                 GUI.Label(rect, string.IsNullOrEmpty(c.Text) ? " " : c.Text, style);
 
-                // resize handle
                 Rect handle = new Rect(
                     rect.xMax - CommentHandleSize,
                     rect.yMax - CommentHandleSize,
@@ -522,7 +514,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
     private Vector2 GetOutputPort(BTNodeData node) =>
         new Vector2(node.Position.x + NodeWidth * 0.5f, node.Position.y + NodeHeight);
 
-    // ============ 节点：屏幕空间 ============
     private void DrawNodes()
     {
         foreach (var node in controller.AllNodes)
@@ -645,10 +636,8 @@ public class BehaviorTreeGraphWindow : EditorWindow
                 return $"{prefix} · {node.Conditions.Logic} · {node.Conditions.Items.Count} 条";
 
             case BTNodeType.Action:
-                if (node.ActionStateMachine == null) return $"{prefix} · (未引用)";
-                if (string.IsNullOrEmpty(node.ActionStateName))
-                    return $"{prefix} · {node.ActionStateMachine.name}";
-                return $"{prefix} · {node.ActionStateMachine.name} → {node.ActionStateName}";
+                if (string.IsNullOrEmpty(node.ActionStateName)) return $"{prefix} · (未选择状态)";
+                return $"{prefix} · → {node.ActionStateName}";
 
             case BTNodeType.Repeater:
                 return $"{prefix} · {(node.RepeatCount == -1 ? "∞" : node.RepeatCount.ToString())}";
@@ -666,7 +655,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
         EditorGUI.DrawRect(new Rect(rect.xMax - thickness, rect.y, thickness, rect.height), color);
     }
 
-    // ============ 连线：屏幕空间 ============
     private void DrawConnections()
     {
         foreach (var node in controller.AllNodes)
@@ -864,38 +852,27 @@ public class BehaviorTreeGraphWindow : EditorWindow
     {
         GUILayout.Label("动作参数", EditorStyles.boldLabel);
 
-        var newSM = (StateMachineAsset)EditorGUILayout.ObjectField(
-            "状态机", node.ActionStateMachine, typeof(StateMachineAsset), false);
+        var stateNames = controller.GetStateNames();
+
+        if (stateNames.Count == 0)
+        {
+            EditorGUILayout.HelpBox(
+                "AIController 上没有配置状态。\n" +
+                "请先在 Inspector 的『状态机』区添加状态。",
+                MessageType.Warning);
+            return;
+        }
 
         string newStateName = node.ActionStateName;
 
-        if (newSM == null)
-        {
-            EditorGUILayout.HelpBox("请先指定一个状态机资产。", MessageType.Info);
-        }
-        else
-        {
-            var names = new List<string>();
-            foreach (var s in newSM.States)
-                if (!string.IsNullOrEmpty(s.Name)) names.Add(s.Name);
+        int idx = stateNames.IndexOf(newStateName);
+        if (idx < 0) idx = 0;
+        idx = EditorGUILayout.Popup("目标状态", idx, stateNames.ToArray());
+        newStateName = stateNames[idx];
 
-            if (names.Count == 0)
-            {
-                EditorGUILayout.HelpBox("该状态机资产里没有状态。", MessageType.Warning);
-            }
-            else
-            {
-                int idx = names.IndexOf(newStateName);
-                if (idx < 0) idx = 0;
-                idx = EditorGUILayout.Popup("目标状态", idx, names.ToArray());
-                newStateName = names[idx];
-            }
-        }
-
-        if (newSM != node.ActionStateMachine || newStateName != node.ActionStateName)
+        if (newStateName != node.ActionStateName)
         {
             RecordUndo("Edit Action Node");
-            node.ActionStateMachine = newSM;
             node.ActionStateName = newStateName;
             EditorUtility.SetDirty(controller);
         }
@@ -922,7 +899,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
                 }
 
             case EventType.MouseDown:
-                // 折叠按钮检测：屏幕空间，优先处理
                 if (e.button == 0 && controller.Comments != null)
                 {
                     for (int i = controller.Comments.Count - 1; i >= 0; i--)
@@ -1536,7 +1512,6 @@ public class BehaviorTreeGraphWindow : EditorWindow
             Position = src.Position,
             ChildrenGuids = new List<string>(src.ChildrenGuids),
             Conditions = CloneConditionGroup(src.Conditions),
-            ActionStateMachine = src.ActionStateMachine,
             ActionStateName = src.ActionStateName,
             RepeatCount = src.RepeatCount
         };

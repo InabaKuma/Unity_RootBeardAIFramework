@@ -4,13 +4,7 @@ using UnityEngine;
 
 public enum BTNodeType
 {
-    Selector,
-    Sequence,
-    Condition,
-    Action,
-    Inverter,
-    Succeeder,
-    Repeater
+    Selector, Sequence, Condition, Action, Inverter, Succeeder, Repeater
 }
 
 public enum CompareOp { Eq, NotEq, Greater, Less, GreaterEq, LessEq }
@@ -41,6 +35,31 @@ public class ConditionGroup
 }
 
 [Serializable]
+public class WeightTerm
+{
+    public string KeyName;
+    public float Coefficient;
+}
+
+[Serializable]
+public class WeightedBehavior
+{
+    public string Name;
+    public string TargetStateName;
+    public List<WeightTerm> Terms = new List<WeightTerm>();
+}
+
+[Serializable]
+public class StateEntry
+{
+    public string Name;
+    public UnityEngine.Object Script;
+    [HideInInspector] public string TypeName;
+
+    public List<WeightedBehavior> Behaviors = new List<WeightedBehavior>();
+}
+
+[Serializable]
 public class BTNodeData
 {
     public string Guid;
@@ -52,11 +71,9 @@ public class BTNodeData
 
     public ConditionGroup Conditions = new ConditionGroup();
 
-    public StateMachineAsset ActionStateMachine;
     public string ActionStateName;
 
-    // Repeater 专用
-    public int RepeatCount = -1;   // -1 = 无限，其他 = 有限次数
+    public int RepeatCount = -1;
 }
 
 [Serializable]

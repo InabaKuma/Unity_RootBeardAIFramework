@@ -1,15 +1,19 @@
+using System;
 using System.Collections.Generic;
 
 namespace RootBeard.Framework
 {
-    /// <summary>
-    /// 行为树共享数据容器，节点可以通过它访问 AI 的各种信息。
-    /// </summary>
     public class BlackBoard
     {
-        private readonly Dictionary<string, object> data = new Dictionary<string, object>();
+        private Dictionary<string, object> data = new Dictionary<string, object>();
 
-        public void Set<T>(string key, T value) => data[key] = value;
+        public event Action<string> OnValueChanged;
+
+        public void Set<T>(string key, T value)
+        {
+            data[key] = value;
+            OnValueChanged?.Invoke(key);
+        }
 
         public T Get<T>(string key)
         {

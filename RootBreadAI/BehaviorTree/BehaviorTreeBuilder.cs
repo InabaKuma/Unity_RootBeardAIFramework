@@ -55,24 +55,18 @@ public static class BehaviorTreeBuilder
 
             case BTNodeType.Action:
                 {
-                    var asset = data.ActionStateMachine;
                     var targetState = data.ActionStateName;
                     var ctrl = controller;
                     string guid = data.Guid;
                     inner = new ActionNode(() =>
                     {
-                        if (asset == null)
+                        if (string.IsNullOrEmpty(targetState))
                         {
                             string shortGuid = guid.Length >= 6 ? guid.Substring(0, 6) : guid;
-                            Debug.LogWarning($"[BT] Action [{shortGuid}] 没有引用状态机");
+                            Debug.LogWarning($"[BT] Action [{shortGuid}] 没有选择目标状态");
                             return NodeState.Failure;
                         }
-                        var machine = ctrl.GetRuntimeMachine(asset);
-                        if (machine == null) return NodeState.Failure;
-
-                        if (!string.IsNullOrEmpty(targetState))
-                            machine.ChangeState(targetState);
-
+                        ctrl.ChangeState(targetState);
                         return NodeState.Success;
                     });
                     break;
@@ -113,9 +107,6 @@ public static class BehaviorTreeBuilder
         return new TrackedNode(controller, data.Guid, displayName, inner);
     }
 
-    /// <summary>
-    /// 装饰节点专用：只取第一个子节点。
-    /// </summary>
     private static IBehaviorNode BuildFirstChild(AIController controller, BTNodeData parent)
     {
         if (parent.ChildrenGuids.Count == 0) return null;

@@ -1,9 +1,8 @@
-using RootBeard.Framework;
-using RootBeard.Interface;
 using System;
 using System.Collections.Generic;
-using System.Xml.Linq;
 using UnityEngine;
+using RootBeard.Framework;
+using RootBeard.Interface;
 
 public class AIController : MonoBehaviour
 {
@@ -14,26 +13,72 @@ public class AIController : MonoBehaviour
     [Header("黑板定义")]
     public List<BlackBoardEntry> BlackBoardDefs = new List<BlackBoardEntry>();
 
+    [HideInInspector] public string InitialStateName;
+    [HideInInspector] public List<StateEntry> States = new List<StateEntry>();
+
     [Header("运行设置")]
-    public float TickInterval = 1f;
     public bool LogExecution = true;
 
     [NonSerialized] public BlackBoard BlackBoard;
+    [NonSerialized] public StateMachine StateMachine;
 
     [NonSerialized] public Dictionary<string, NodeState> NodeStates = new Dictionary<string, NodeState>();
     [NonSerialized] public List<string> TickPath = new List<string>();
 
-    [NonSerialized]
-    private Dictionary<StateMachineAsset, StateMachine> runtimeMachines
-        = new Dictionary<StateMachineAsset, StateMachine>();
-
     private BehaviorTree tree;
-    private float timer;
+    private bool pendingTick;
 
     private void Awake()
     {
         BlackBoard = new BlackBoard();
+        BlackBoard.OnValueChanged += OnBlackBoardChanged;
         SyncBlackBoardFromDefs();
+    }
+
+    private void Start()
+    {
+        BuildStateMachine();
+
+        tree = BehaviorTreeBuilder.Build(this);
+        if (tree == null)
+            Debug.LogWarning($"[BT] {gameObject.name} 没有可运行的行为树");
+    }
+
+    private void Update()
+    {
+        StateMachine?.Update();
+
+        if (pendingTick)
+        {
+            pendingTick = false;
+            TickTree();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (BlackBoard != null)
+            BlackBoard.OnValueChanged -= OnBlackBoardChanged;
+
+        StateMachine?.ExitCurrentState();
+    }
+
+    private void OnBlackBoardChanged(string key) => pendingTick = true;
+
+    private void TickTree()
+    {
+        if (tree == null) return;
+
+        NodeStates.Clear();
+        TickPath.Clear();
+
+        var state = tree.Update();
+
+        if (LogExecution)
+        {
+            string path = TickPath.Count > 0 ? string.Join(" → ", TickPath) : "(无)";
+            Debug.Log($"[BT] {gameObject.name} tick 结果: {state} | 执行路径: {path}");
+        }
     }
 
     public void SyncBlackBoardFromDefs()
@@ -63,49 +108,50 @@ public class AIController : MonoBehaviour
         }
     }
 
-    private void Start()
+    public void BuildStateMachine()
     {
-        tree = BehaviorTreeBuilder.Build(this);
-        if (tree == null)
-            Debug.LogWarning($"[BT] {gameObject.name} 没有可运行的行为树");
-    }
+        StateMachine = new StateMachine();
+        IState initial = null;
 
-    private void Update()
-    {
-        foreach (var machine in runtimeMachines.Values)
-            machine?.Update();
-
-        if (tree == null) return;
-
-        timer += Time.deltaTime;
-        if (timer < TickInterval) return;
-        timer = 0f;
-
-        NodeStates.Clear();
-        TickPath.Clear();
-
-        var state = tree.Update();
-
-        if (LogExecution)
+        foreach (var entry in States)
         {
-            string path = TickPath.Count > 0 ? string.Join(" → ", TickPath) : "(无)";
-            Debug.Log($"[BT] {gameObject.name} tick 结果: {state} | 执行路径: {path}");
+            if (string.IsNullOrEmpty(entry.TypeName)) continue;
+
+            var type = Type.GetType(entry.TypeName);
+            if (type == null || !typeof(IState).IsAssignableFrom(type)) continue;
+
+            var state = (IState)Activator.CreateInstance(type);
+            StateMachine.Register(entry.Name, state);
+
+            if (state is WeightedState ws)
+            {
+                var capturedMachine = StateMachine;
+                ws.Setup(
+                    BlackBoard,
+                    entry.Behaviors,
+                    target => capturedMachine.ChangeState(target)
+                );
+            }
+
+            if (entry.Name == InitialStateName)
+                initial = state;
         }
+
+        if (initial != null)
+            StateMachine.ChangeState(initial);
     }
 
-    private void OnDestroy()
+    public void ChangeState(string name)
     {
-        foreach (var machine in runtimeMachines.Values)
-            machine?.ExitCurrentState();
+        if (StateMachine == null) BuildStateMachine();
+        StateMachine?.ChangeState(name);
     }
 
-    public StateMachine GetRuntimeMachine(StateMachineAsset asset)
+    public List<string> GetStateNames()
     {
-        if (asset == null) return null;
-        if (runtimeMachines.TryGetValue(asset, out var m)) return m;
-
-        m = StateMachineBuilder.Build(asset, BlackBoard);
-        runtimeMachines[asset] = m;
-        return m;
+        var result = new List<string>();
+        foreach (var s in States)
+            if (!string.IsNullOrEmpty(s.Name)) result.Add(s.Name);
+        return result;
     }
 }
