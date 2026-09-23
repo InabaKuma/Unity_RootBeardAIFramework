@@ -11,7 +11,7 @@
 - **黑板实时调试**：运行时可在 Inspector 中实时查看和修改黑板变量。
 
 ## 🚀 快速开始
-1. 点击右侧的 [Releases](你的Releases链接) 下载最新的 `.unitypackage`，并导入你的 Unity 项目。
+1. 点击右侧的 [Releases](https://github.com/InabaKuma/Unity_RootBeardAIFramework/releases/tag/v1.0.0) 下载最新的 `.unitypackage`，并导入你的 Unity 项目。
    *(或者 Clone 本仓库，将 `Runtime` 和 `Editor` 文件夹放入你的项目)*。
 2. 在场景中创建一个空物体，挂载 `AIController` 组件。
 3. 点击 `AIController` 面板上的 **"打开 AI 编辑器"**。
