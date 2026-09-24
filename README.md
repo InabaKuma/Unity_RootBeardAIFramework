@@ -14,7 +14,8 @@
 - **可视化节点编辑器**：内置 GraphWindow，支持缩放、拖拽、连线、搜索、注释、复制粘贴，运行时高亮节点状态（Success / Failure / Running）。
 - **黑板实时调试**：运行时可在 Inspector 中查看和修改黑板变量，无需重启即可观察 AI 反应。
 
-![Demo]![Uploading GIF 2026-9-24 21-59-06.gif…]()
+[Demo]<img width="2437" height="1315" alt="GIF 2026-9-24 21-59-06" src="https://github.com/user-attachments/assets/9609dac0-4612-4c47-b763-655f5a400f9b" />
+
 
 
 ## 🏗️ 架构概览
